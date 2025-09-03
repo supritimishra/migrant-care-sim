@@ -3,10 +3,10 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Separator } from '@/components/ui/separator';
 import { Label } from '@/components/ui/label';
-import { MigrantAssessment, User } from '@/types';
-import { Stethoscope, FileText, Calendar, User as UserIcon, Activity, Target } from 'lucide-react';
+import { User, MigrantAssessment } from '@/types';
+import { FileText, User as UserIcon, Stethoscope, Calendar, CheckCircle, XCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface DoctorDashboardProps {
@@ -18,56 +18,60 @@ interface DoctorDashboardProps {
 
 const DoctorDashboard = ({ user, assessments, onUpdateAssessment, onLogout }: DoctorDashboardProps) => {
   const { toast } = useToast();
-  const [selectedAssessment, setSelectedAssessment] = useState<MigrantAssessment | null>(null);
-  const [diagnosis, setDiagnosis] = useState('');
-  const [preventiveGoals, setPreventiveGoals] = useState('');
+  const [diagnosisInputs, setDiagnosisInputs] = useState<Record<string, string>>({});
+  const [goalsInputs, setGoalsInputs] = useState<Record<string, string>>({});
 
-  const handleSaveFeedback = () => {
-    if (!selectedAssessment) return;
+  const handleDiagnosisChange = (assessmentId: string, value: string) => {
+    setDiagnosisInputs(prev => ({ ...prev, [assessmentId]: value }));
+  };
+
+  const handleGoalsChange = (assessmentId: string, value: string) => {
+    setGoalsInputs(prev => ({ ...prev, [assessmentId]: value }));
+  };
+
+  const handleAppointmentAction = (assessmentId: string, status: 'accepted' | 'rejected' | 'completed') => {
+    onUpdateAssessment(assessmentId, {
+      appointmentStatus: status,
+      doctorId: user.id,
+      updatedAt: new Date()
+    });
+
+    toast({
+      title: status === 'accepted' ? "Appointment Accepted" : status === 'rejected' ? "Appointment Rejected" : "Consultation Completed",
+      description: status === 'accepted' ? "You can now provide diagnosis and treatment" : 
+                   status === 'rejected' ? "Appointment has been rejected" : 
+                   "Patient consultation has been marked as completed",
+    });
+  };
+
+  const handleSaveAssessment = (assessmentId: string) => {
+    const diagnosis = diagnosisInputs[assessmentId];
+    const preventiveGoals = goalsInputs[assessmentId];
     
-    if (!diagnosis.trim()) {
+    if (!diagnosis || !preventiveGoals) {
       toast({
-        title: "Missing Diagnosis",
-        description: "Please provide a diagnosis before saving",
+        title: "Missing Information",
+        description: "Please fill in both diagnosis and preventive goals",
         variant: "destructive"
       });
       return;
     }
 
-    onUpdateAssessment(selectedAssessment.id, {
-      diagnosis: diagnosis.trim(),
-      preventiveGoals: preventiveGoals.trim(),
-      doctorFeedback: `Diagnosis: ${diagnosis.trim()}${preventiveGoals.trim() ? `\nPreventive Goals: ${preventiveGoals.trim()}` : ''}`,
+    onUpdateAssessment(assessmentId, {
+      diagnosis,
+      preventiveGoals,
+      doctorFeedback: `Dr. ${user.name} - ${new Date().toLocaleDateString()}`,
       updatedAt: new Date()
     });
 
     toast({
-      title: "Feedback Saved",
-      description: `Assessment updated for ${selectedAssessment.patientName}`,
+      title: "Assessment Saved",
+      description: "Patient assessment has been updated successfully",
     });
 
-    setSelectedAssessment(null);
-    setDiagnosis('');
-    setPreventiveGoals('');
-  };
-
-  const openAssessment = (assessment: MigrantAssessment) => {
-    setSelectedAssessment(assessment);
-    setDiagnosis(assessment.diagnosis || '');
-    setPreventiveGoals(assessment.preventiveGoals || '');
-  };
-
-  const pendingAssessments = assessments.filter(a => !a.diagnosis);
-  const completedAssessments = assessments.filter(a => a.diagnosis);
-
-  const getMigrantTypeColor = (type: string) => {
-    switch (type) {
-      case 'refugee': return 'bg-red-100 text-red-800';
-      case 'seasonal': return 'bg-green-100 text-green-800';
-      case 'worker': return 'bg-blue-100 text-blue-800';
-      case 'asylum_seeker': return 'bg-purple-100 text-purple-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
+    // Clear the inputs
+    setDiagnosisInputs(prev => ({ ...prev, [assessmentId]: '' }));
+    setGoalsInputs(prev => ({ ...prev, [assessmentId]: '' }));
   };
 
   return (
@@ -77,7 +81,7 @@ const DoctorDashboard = ({ user, assessments, onUpdateAssessment, onLogout }: Do
           <div className="flex justify-between items-center py-4">
             <div>
               <h1 className="text-2xl font-bold text-foreground">Doctor Dashboard</h1>
-              <p className="text-muted-foreground">Migrant Health Specialist - {user.name}</p>
+              <p className="text-muted-foreground">Infectious Disease Specialist - {user.name}</p>
             </div>
             <Button variant="outline" onClick={onLogout}>Logout</Button>
           </div>
@@ -85,206 +89,167 @@ const DoctorDashboard = ({ user, assessments, onUpdateAssessment, onLogout }: Do
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Stats Cards */}
-          <div className="lg:col-span-3 grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-            <Card>
-              <CardContent className="p-6">
-                <div className="flex items-center">
-                  <div className="p-2 bg-accent/10 rounded-lg">
-                    <Activity className="w-6 h-6 text-accent" />
-                  </div>
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-muted-foreground">Pending Reviews</p>
-                    <p className="text-2xl font-bold">{pendingAssessments.length}</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+        <div className="grid grid-cols-1 gap-8">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Stethoscope className="w-5 h-5" />
+                Patient Assessments & Appointments
+              </CardTitle>
+              <CardDescription>Review appointments and provide medical consultation</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {assessments.length === 0 ? (
+                <p className="text-muted-foreground text-center py-4">No patient assessments yet.</p>
+              ) : (
+                <div className="space-y-4">
+                  {assessments.map((assessment) => (
+                    <div key={assessment.id} className="border border-border rounded-lg p-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <UserIcon className="w-4 h-4" />
+                          <span className="font-medium">{assessment.patientName}</span>
+                          <Badge variant="secondary">{assessment.migrantType}</Badge>
+                          <Badge variant={
+                            assessment.infectiousDiseaseRisk === 'High Risk' ? 'destructive' :
+                            assessment.infectiousDiseaseRisk === 'Medium Risk' ? 'secondary' : 'default'
+                          }>
+                            {assessment.infectiousDiseaseRisk}
+                          </Badge>
+                          <Badge variant={
+                            assessment.appointmentStatus === 'accepted' ? 'default' :
+                            assessment.appointmentStatus === 'rejected' ? 'destructive' :
+                            assessment.appointmentStatus === 'completed' ? 'default' : 'secondary'
+                          }>
+                            {assessment.appointmentStatus}
+                          </Badge>
+                        </div>
+                        <span className="text-sm text-muted-foreground">
+                          {assessment.createdAt.toLocaleDateString()}
+                        </span>
+                      </div>
 
-            <Card>
-              <CardContent className="p-6">
-                <div className="flex items-center">
-                  <div className="p-2 bg-success/10 rounded-lg">
-                    <Target className="w-6 h-6 text-success" />
-                  </div>
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-muted-foreground">Completed</p>
-                    <p className="text-2xl font-bold">{completedAssessments.length}</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="p-6">
-                <div className="flex items-center">
-                  <div className="p-2 bg-primary/10 rounded-lg">
-                    <UserIcon className="w-6 h-6 text-primary" />
-                  </div>
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-muted-foreground">Total Patients</p>
-                    <p className="text-2xl font-bold">{assessments.length}</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Pending Assessments */}
-          <div className="lg:col-span-2">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Stethoscope className="w-5 h-5" />
-                  Pending Patient Assessments
-                </CardTitle>
-                <CardDescription>
-                  Migrant health reports awaiting medical review
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {pendingAssessments.length === 0 ? (
-                  <p className="text-muted-foreground text-center py-8">No pending assessments</p>
-                ) : (
-                  <div className="space-y-4">
-                    {pendingAssessments.map((assessment) => (
-                      <div key={assessment.id} className="border border-border rounded-lg p-4 hover:bg-muted/50 transition-colors">
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-2">
-                              <h4 className="font-medium">{assessment.patientName}</h4>
-                              <Badge className={getMigrantTypeColor(assessment.migrantType)}>
-                                {assessment.migrantType}
-                              </Badge>
-                              <span className="text-sm text-muted-foreground">Age: {assessment.age}</span>
-                            </div>
-                            
-                            <div className="space-y-2 text-sm">
-                              <p><strong>Symptoms:</strong> {assessment.symptoms}</p>
-                              {assessment.healthHistory && (
-                                <p><strong>Health History:</strong> {assessment.healthHistory}</p>
-                              )}
-                              {assessment.lifestyle && (
-                                <p><strong>Lifestyle:</strong> {assessment.lifestyle}</p>
-                              )}
-                              {assessment.mriFilename && (
-                                <p><strong>MRI Upload:</strong> {assessment.mriFilename}</p>
-                              )}
-                            </div>
-
-                            <div className="flex items-center gap-2 mt-3 text-xs text-muted-foreground">
-                              <Calendar className="w-3 h-3" />
-                              Submitted: {assessment.createdAt.toLocaleDateString()}
+                      <div className="space-y-2 mb-4">
+                        <div className="grid grid-cols-2 gap-4 text-sm">
+                          <div><strong>Age:</strong> {assessment.age}</div>
+                          <div><strong>Type:</strong> {assessment.migrantType}</div>
+                        </div>
+                        <div className="text-sm">
+                          <strong>Symptoms:</strong> {assessment.symptoms}
+                        </div>
+                        {assessment.healthHistory && (
+                          <div className="text-sm">
+                            <strong>Health History:</strong> {assessment.healthHistory}
+                          </div>
+                        )}
+                        {assessment.lifestyle && (
+                          <div className="text-sm">
+                            <strong>Lifestyle:</strong> {assessment.lifestyle}
+                          </div>
+                        )}
+                        
+                        {assessment.bloodTestResults.hemoglobin && (
+                          <div className="bg-gray-50 dark:bg-gray-800 p-3 rounded-md">
+                            <p className="text-sm font-medium mb-2">Blood Test Results:</p>
+                            <div className="grid grid-cols-2 gap-2 text-sm">
+                              <span>Hemoglobin: {assessment.bloodTestResults.hemoglobin} g/dL</span>
+                              <span>WBC: {assessment.bloodTestResults.whiteBloodCells} ×10³/μL</span>
+                              <span>Platelets: {assessment.bloodTestResults.platelets} ×10³/μL</span>
+                              <span>Blood Sugar: {assessment.bloodTestResults.bloodSugar} mg/dL</span>
+                              <span>Cholesterol: {assessment.bloodTestResults.cholesterol} mg/dL</span>
+                              <span>Test Date: {assessment.bloodTestResults.testDate}</span>
                             </div>
                           </div>
+                        )}
 
-                          <Dialog>
-                            <DialogTrigger asChild>
-                              <Button onClick={() => openAssessment(assessment)}>
-                                Review Case
-                              </Button>
-                            </DialogTrigger>
-                            <DialogContent className="max-w-2xl">
-                              <DialogHeader>
-                                <DialogTitle>Medical Review - {assessment.patientName}</DialogTitle>
-                                <DialogDescription>
-                                  Provide diagnosis and preventive care recommendations
-                                </DialogDescription>
-                              </DialogHeader>
-                              
-                              <div className="space-y-4">
-                                <div className="grid grid-cols-2 gap-4 p-4 bg-muted rounded-lg">
-                                  <div>
-                                    <p className="text-sm font-medium">Patient</p>
-                                    <p className="text-sm text-muted-foreground">{assessment.patientName}, {assessment.age} years</p>
-                                  </div>
-                                  <div>
-                                    <p className="text-sm font-medium">Migrant Type</p>
-                                    <Badge className={getMigrantTypeColor(assessment.migrantType)}>
-                                      {assessment.migrantType}
-                                    </Badge>
-                                  </div>
-                                </div>
-
-                                <div>
-                                  <Label htmlFor="diagnosis">Medical Diagnosis *</Label>
-                                  <Textarea
-                                    id="diagnosis"
-                                    placeholder="Provide detailed diagnosis considering migrant-specific health risks (TB, malnutrition, occupational hazards, etc.)"
-                                    value={diagnosis}
-                                    onChange={(e) => setDiagnosis(e.target.value)}
-                                    className="mt-2"
-                                    rows={4}
-                                  />
-                                </div>
-
-                                <div>
-                                  <Label htmlFor="preventive">Preventive Goals & Recommendations</Label>
-                                  <Textarea
-                                    id="preventive"
-                                    placeholder="Preventive care recommendations (diet, hygiene, vaccination, follow-up care, etc.)"
-                                    value={preventiveGoals}
-                                    onChange={(e) => setPreventiveGoals(e.target.value)}
-                                    className="mt-2"
-                                    rows={4}
-                                  />
-                                </div>
-
-                                <div className="flex justify-end gap-2">
-                                  <DialogTrigger asChild>
-                                    <Button variant="outline">Cancel</Button>
-                                  </DialogTrigger>
-                                  <DialogTrigger asChild>
-                                    <Button onClick={handleSaveFeedback}>
-                                      Save Medical Review
-                                    </Button>
-                                  </DialogTrigger>
-                                </div>
-                              </div>
-                            </DialogContent>
-                          </Dialog>
-                        </div>
+                        {assessment.preDiagnosis && (
+                          <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-md">
+                            <p className="text-sm font-medium text-blue-700 dark:text-blue-300">AI Pre-Diagnosis:</p>
+                            <p className="text-sm text-blue-600 dark:text-blue-400">{assessment.preDiagnosis}</p>
+                          </div>
+                        )}
                       </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
 
-          {/* Recent Completed Cases */}
-          <div>
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <FileText className="w-5 h-5" />
-                  Recent Completed Cases
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {completedAssessments.length === 0 ? (
-                  <p className="text-muted-foreground text-center py-4">No completed cases yet</p>
-                ) : (
-                  <div className="space-y-3">
-                    {completedAssessments.slice(0, 5).map((assessment) => (
-                      <div key={assessment.id} className="border border-border rounded-lg p-3">
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="font-medium text-sm">{assessment.patientName}</span>
-                          <Badge variant="outline" className="text-xs">Completed</Badge>
+                      <Separator className="my-4" />
+                      
+                      {assessment.appointmentStatus === 'pending' && (
+                        <div className="flex gap-2 mb-4">
+                          <Button 
+                            onClick={() => handleAppointmentAction(assessment.id, 'accepted')}
+                            className="flex-1"
+                            variant="default"
+                          >
+                            <CheckCircle className="w-4 h-4 mr-2" />
+                            Accept Appointment
+                          </Button>
+                          <Button 
+                            onClick={() => handleAppointmentAction(assessment.id, 'rejected')}
+                            className="flex-1"
+                            variant="destructive"
+                          >
+                            <XCircle className="w-4 h-4 mr-2" />
+                            Reject
+                          </Button>
                         </div>
-                        <p className="text-xs text-muted-foreground">{assessment.diagnosis}</p>
-                        <div className="flex items-center gap-1 mt-2 text-xs text-muted-foreground">
-                          <Calendar className="w-3 h-3" />
-                          {assessment.updatedAt?.toLocaleDateString()}
+                      )}
+                      
+                      {assessment.appointmentStatus === 'accepted' && (
+                        <div className="space-y-4">
+                          <div className="space-y-2">
+                            <Label htmlFor={`diagnosis-${assessment.id}`}>Medical Diagnosis</Label>
+                            <Textarea
+                              id={`diagnosis-${assessment.id}`}
+                              placeholder="Enter your diagnosis..."
+                              value={diagnosisInputs[assessment.id] || assessment.diagnosis || ''}
+                              onChange={(e) => handleDiagnosisChange(assessment.id, e.target.value)}
+                            />
+                          </div>
+                          
+                          <div className="space-y-2">
+                            <Label htmlFor={`goals-${assessment.id}`}>Prevention & Treatment Goals</Label>
+                            <Textarea
+                              id={`goals-${assessment.id}`}
+                              placeholder="Enter preventive care and treatment recommendations..."
+                              value={goalsInputs[assessment.id] || assessment.preventiveGoals || ''}
+                              onChange={(e) => handleGoalsChange(assessment.id, e.target.value)}
+                            />
+                          </div>
+                          
+                          <div className="flex gap-2">
+                            <Button 
+                              onClick={() => handleSaveAssessment(assessment.id)}
+                              className="flex-1"
+                            >
+                              Save Assessment
+                            </Button>
+                            <Button 
+                              onClick={() => handleAppointmentAction(assessment.id, 'completed')}
+                              className="flex-1"
+                              variant="outline"
+                            >
+                              Mark Completed
+                            </Button>
+                          </div>
                         </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
+                      )}
+                      
+                      {assessment.appointmentStatus === 'rejected' && (
+                        <div className="bg-red-50 dark:bg-red-900/20 p-3 rounded-md">
+                          <p className="text-sm text-red-700 dark:text-red-300">Appointment was rejected</p>
+                        </div>
+                      )}
+                      
+                      {assessment.appointmentStatus === 'completed' && (
+                        <div className="bg-green-50 dark:bg-green-900/20 p-3 rounded-md">
+                          <p className="text-sm text-green-700 dark:text-green-300">Consultation completed</p>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
       </main>
     </div>

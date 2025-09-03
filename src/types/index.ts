@@ -16,10 +16,21 @@ export interface MigrantAssessment {
   lifestyle: string;
   healthHistory: string;
   symptoms: string;
-  mriFilename?: string;
+  bloodTestResults: {
+    hemoglobin?: string;
+    whiteBloodCells?: string;
+    platelets?: string;
+    bloodSugar?: string;
+    cholesterol?: string;
+    testDate?: string;
+  };
+  infectiousDiseaseRisk: string;
   reportGenerated: boolean;
   diagnosis?: string;
   preventiveGoals?: string;
+  preDiagnosis?: string;
+  appointmentStatus: 'pending' | 'accepted' | 'rejected' | 'completed';
+  doctorId?: string;
   doctorFeedback?: string;
   createdAt: Date;
   updatedAt?: Date;

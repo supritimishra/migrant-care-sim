@@ -27,7 +27,14 @@ const PatientDashboard = ({ user, assessments, healthCamps, onCreateAssessment, 
     lifestyle: '',
     healthHistory: '',
     symptoms: '',
-    mriFile: null as File | null
+    bloodTest: {
+      hemoglobin: '',
+      whiteBloodCells: '',
+      platelets: '',
+      bloodSugar: '',
+      cholesterol: '',
+      testDate: ''
+    }
   });
 
   const userAssessments = assessments.filter(a => a.patientId === user.id);
@@ -36,9 +43,11 @@ const PatientDashboard = ({ user, assessments, healthCamps, onCreateAssessment, 
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    setFormData(prev => ({ ...prev, mriFile: file || null }));
+  const handleBloodTestChange = (field: string, value: string) => {
+    setFormData(prev => ({
+      ...prev,
+      bloodTest: { ...prev.bloodTest, [field]: value }
+    }));
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -53,6 +62,14 @@ const PatientDashboard = ({ user, assessments, healthCamps, onCreateAssessment, 
       return;
     }
 
+    // Generate infectious disease risk assessment
+    const riskFactors = [];
+    if (formData.symptoms.toLowerCase().includes('fever')) riskFactors.push('fever');
+    if (formData.symptoms.toLowerCase().includes('cough')) riskFactors.push('respiratory symptoms');
+    if (formData.migrantType === 'refugee') riskFactors.push('crowded living conditions');
+    
+    const riskLevel = riskFactors.length > 2 ? 'High Risk' : riskFactors.length > 1 ? 'Medium Risk' : 'Low Risk';
+
     onCreateAssessment({
       patientId: user.id,
       patientName: user.name,
@@ -61,8 +78,11 @@ const PatientDashboard = ({ user, assessments, healthCamps, onCreateAssessment, 
       lifestyle: formData.lifestyle,
       healthHistory: formData.healthHistory,
       symptoms: formData.symptoms,
-      mriFilename: formData.mriFile?.name,
+      bloodTestResults: formData.bloodTest,
+      infectiousDiseaseRisk: riskLevel,
       reportGenerated: true,
+      appointmentStatus: 'pending',
+      preDiagnosis: `Based on symptoms and risk factors: ${riskLevel} for infectious diseases. Immediate screening recommended.`,
       updatedAt: new Date()
     });
 
@@ -77,7 +97,14 @@ const PatientDashboard = ({ user, assessments, healthCamps, onCreateAssessment, 
       lifestyle: '',
       healthHistory: '',
       symptoms: '',
-      mriFile: null
+      bloodTest: {
+        hemoglobin: '',
+        whiteBloodCells: '',
+        platelets: '',
+        bloodSugar: '',
+        cholesterol: '',
+        testDate: ''
+      }
     });
   };
 
@@ -102,10 +129,10 @@ const PatientDashboard = ({ user, assessments, healthCamps, onCreateAssessment, 
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <FileText className="w-5 h-5" />
-                Migrant Health Assessment
+                Infectious Disease Risk Assessment
               </CardTitle>
               <CardDescription>
-                Complete your health assessment to receive personalized care recommendations
+                Complete your assessment for infectious disease prediction and prevention
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -169,24 +196,68 @@ const PatientDashboard = ({ user, assessments, healthCamps, onCreateAssessment, 
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="mri">MRI/Medical Scan Upload</Label>
-                  <div className="flex items-center gap-2">
-                    <Input
-                      id="mri"
-                      type="file"
-                      accept=".jpg,.jpeg,.png,.pdf,.dcm"
-                      onChange={handleFileChange}
-                    />
-                    <Upload className="w-4 h-4 text-muted-foreground" />
+                <div className="space-y-4">
+                  <Label className="text-base font-medium">Past Blood Test Results</Label>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="hemoglobin">Hemoglobin (g/dL)</Label>
+                      <Input
+                        id="hemoglobin"
+                        value={formData.bloodTest.hemoglobin}
+                        onChange={(e) => handleBloodTestChange('hemoglobin', e.target.value)}
+                        placeholder="12.0-15.5"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="wbc">White Blood Cells (×10³/μL)</Label>
+                      <Input
+                        id="wbc"
+                        value={formData.bloodTest.whiteBloodCells}
+                        onChange={(e) => handleBloodTestChange('whiteBloodCells', e.target.value)}
+                        placeholder="4.5-11.0"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="platelets">Platelets (×10³/μL)</Label>
+                      <Input
+                        id="platelets"
+                        value={formData.bloodTest.platelets}
+                        onChange={(e) => handleBloodTestChange('platelets', e.target.value)}
+                        placeholder="150-450"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="bloodSugar">Blood Sugar (mg/dL)</Label>
+                      <Input
+                        id="bloodSugar"
+                        value={formData.bloodTest.bloodSugar}
+                        onChange={(e) => handleBloodTestChange('bloodSugar', e.target.value)}
+                        placeholder="70-100"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="cholesterol">Cholesterol (mg/dL)</Label>
+                      <Input
+                        id="cholesterol"
+                        value={formData.bloodTest.cholesterol}
+                        onChange={(e) => handleBloodTestChange('cholesterol', e.target.value)}
+                        placeholder="< 200"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="testDate">Test Date</Label>
+                      <Input
+                        id="testDate"
+                        type="date"
+                        value={formData.bloodTest.testDate}
+                        onChange={(e) => handleBloodTestChange('testDate', e.target.value)}
+                      />
+                    </div>
                   </div>
-                  {formData.mriFile && (
-                    <p className="text-sm text-muted-foreground">Selected: {formData.mriFile.name}</p>
-                  )}
                 </div>
 
                 <Button type="submit" className="w-full bg-gradient-to-r from-primary to-accent">
-                  Generate Migrant Health Report
+                  Generate Risk Assessment & Request Appointment
                 </Button>
               </form>
             </CardContent>
@@ -197,7 +268,7 @@ const PatientDashboard = ({ user, assessments, healthCamps, onCreateAssessment, 
             {/* My Reports */}
             <Card>
               <CardHeader>
-                <CardTitle>My Health Reports</CardTitle>
+                <CardTitle>My Assessments & Appointments</CardTitle>
                 <CardDescription>{userAssessments.length} assessment(s) completed</CardDescription>
               </CardHeader>
               <CardContent>
@@ -210,11 +281,19 @@ const PatientDashboard = ({ user, assessments, healthCamps, onCreateAssessment, 
                         <div className="flex items-center justify-between mb-2">
                           <div className="flex items-center gap-2">
                             <Badge variant="secondary">{assessment.migrantType}</Badge>
-                            {assessment.diagnosis ? (
-                              <CheckCircle className="w-4 h-4 text-success" />
-                            ) : (
-                              <AlertCircle className="w-4 h-4 text-accent" />
-                            )}
+                            <Badge variant={
+                              assessment.appointmentStatus === 'accepted' ? 'default' :
+                              assessment.appointmentStatus === 'rejected' ? 'destructive' :
+                              assessment.appointmentStatus === 'completed' ? 'default' : 'secondary'
+                            }>
+                              {assessment.appointmentStatus}
+                            </Badge>
+                            <Badge variant={
+                              assessment.infectiousDiseaseRisk === 'High Risk' ? 'destructive' :
+                              assessment.infectiousDiseaseRisk === 'Medium Risk' ? 'secondary' : 'default'
+                            }>
+                              {assessment.infectiousDiseaseRisk}
+                            </Badge>
                           </div>
                           <span className="text-sm text-muted-foreground">
                             {assessment.createdAt.toLocaleDateString()}
@@ -223,16 +302,37 @@ const PatientDashboard = ({ user, assessments, healthCamps, onCreateAssessment, 
                         
                         <div className="space-y-2">
                           <p className="text-sm"><strong>Symptoms:</strong> {assessment.symptoms}</p>
+                          
+                          {assessment.preDiagnosis && (
+                            <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-md">
+                              <p className="text-sm font-medium text-blue-700 dark:text-blue-300">Pre-Diagnosis:</p>
+                              <p className="text-sm text-blue-600 dark:text-blue-400">{assessment.preDiagnosis}</p>
+                            </div>
+                          )}
+
                           {assessment.diagnosis && (
                             <div className="bg-muted p-3 rounded-md">
                               <p className="text-sm font-medium text-foreground">Doctor's Diagnosis:</p>
                               <p className="text-sm text-muted-foreground">{assessment.diagnosis}</p>
                             </div>
                           )}
+                          
                           {assessment.preventiveGoals && (
                             <div className="bg-success/10 p-3 rounded-md">
-                              <p className="text-sm font-medium text-success">Preventive Goals:</p>
+                              <p className="text-sm font-medium text-success">Prevention Goals:</p>
                               <p className="text-sm text-success/80">{assessment.preventiveGoals}</p>
+                            </div>
+                          )}
+
+                          {assessment.bloodTestResults.hemoglobin && (
+                            <div className="bg-gray-50 dark:bg-gray-800 p-3 rounded-md">
+                              <p className="text-sm font-medium mb-1">Blood Test Analysis:</p>
+                              <div className="grid grid-cols-2 gap-2 text-xs">
+                                <span>Hemoglobin: {assessment.bloodTestResults.hemoglobin}</span>
+                                <span>WBC: {assessment.bloodTestResults.whiteBloodCells}</span>
+                                <span>Platelets: {assessment.bloodTestResults.platelets}</span>
+                                <span>Blood Sugar: {assessment.bloodTestResults.bloodSugar}</span>
+                              </div>
                             </div>
                           )}
                         </div>
